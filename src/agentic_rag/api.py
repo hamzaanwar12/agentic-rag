@@ -1,11 +1,18 @@
 """HTTP API: POST /ingest (text), POST /ask, GET /search."""
+import hmac
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 from . import agent
 from .store import Store
 
-app = FastAPI(title="agentic-rag")
+def require_token(authorization: str = Header("")):
+    token = os.getenv("RAG_API_TOKEN", "")
+    if not token or not hmac.compare_digest(authorization.removeprefix("Bearer ").strip(), token):
+        raise HTTPException(401, "missing or invalid token (set RAG_API_TOKEN)")
+
+
+app = FastAPI(title="agentic-rag", dependencies=[Depends(require_token)])
 store = Store(os.getenv("RAG_DB", "rag.db"))
 if os.getenv("DOCS_DIR"):
     store.ingest_dir(os.environ["DOCS_DIR"])
@@ -22,7 +29,8 @@ class Question(BaseModel):
 
 @app.post("/ingest")
 def ingest(doc: Doc):
-    return {"source": doc.source, "chunks": store.add(doc.source, doc.text)}
+    source = f"api:{doc.source}"  # API docs live in their own namespace; can't overwrite DOCS_DIR files
+    return {"source": source, "chunks": store.add(source, doc.text)}
 
 
 @app.get("/search")

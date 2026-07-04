@@ -30,8 +30,9 @@ class Store:
         return len(parts)
 
     def ingest_dir(self, folder: str) -> dict[str, int]:
-        return {str(f): self.add(str(f), f.read_text(errors="ignore"))
-                for f in sorted(Path(folder).rglob("*")) if f.suffix in {".md", ".txt"}}
+        root = Path(folder)  # ids are paths relative to the folder: no absolute paths leak to clients
+        return {str(f.relative_to(root)): self.add(str(f.relative_to(root)), f.read_text(errors="ignore"))
+                for f in sorted(root.rglob("*")) if f.suffix in {".md", ".txt"}}
 
     def search(self, query: str, k: int = 5) -> list[dict]:
         terms = " OR ".join(f'"{w}"' for w in re.findall(r"\w+", query.lower()))  # quoted: user text can't inject FTS syntax

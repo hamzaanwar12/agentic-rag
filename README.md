@@ -15,15 +15,17 @@ question ─▶ Claude (tool runner) ──search_docs(query)──▶ SQLite FT
 - **Zero infra:** SQLite FTS5 (BM25) is built into Python — no vector DB needed to start. The `Store`
   interface (`add` / `search`) is the seam for swapping in pgvector or hybrid search.
 - **Grounded answers:** the API returns only sources the answer actually cites.
-- **Safe input:** user text is quoted before reaching FTS, so it can't inject query syntax.
+- **Secure by default:** every endpoint needs `RAG_API_TOKEN` (closed if unset); API-ingested docs are
+  namespaced `api:` so they can't overwrite curated files; retrieved passages are treated as untrusted data
+  in the prompt; user text is quoted before reaching FTS.
 
 ## Run
 
 ```bash
 uv sync
-export ANTHROPIC_API_KEY=...
+export ANTHROPIC_API_KEY=... RAG_API_TOKEN=$(openssl rand -hex 16)
 DOCS_DIR=docs uv run uvicorn agentic_rag.api:app --reload
-curl -s localhost:8000/ask -H 'content-type: application/json' -d '{"question":"When can I deploy?"}'
+curl -s localhost:8000/ask -H "Authorization: Bearer $RAG_API_TOKEN" -H 'content-type: application/json' -d '{"question":"When can I deploy?"}'
 ```
 
 | Endpoint | |

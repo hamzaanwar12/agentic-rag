@@ -52,15 +52,25 @@ def test_agent_answer_cites_sources():
     s = Store()
     s.ingest_dir("docs")
     out = agent.answer("When can I deploy?", s, client=fake_client())
-    assert out["sources"] == ["docs/onboarding.md#0"] and out["searches"] >= 1
+    assert out["sources"] == ["onboarding.md#0"] and out["searches"] >= 1
 
 
 def test_api_ingest_search_ask(monkeypatch):
     from agentic_rag import api
     monkeypatch.setattr(api, "store", Store())
     monkeypatch.setattr(api.agent, "answer", lambda q, s: {"answer": "ok", "sources": [], "searches": 0})
-    c = TestClient(api.app)
+    monkeypatch.setenv("RAG_API_TOKEN", "t0ken")
+    c = TestClient(api.app, headers={"Authorization": "Bearer t0ken"})
     assert c.post("/ingest", json={"source": "x.md", "text": "pgvector vs fts5"}).json()["chunks"] == 1
-    assert c.get("/search", params={"q": "fts5"}).json()[0]["id"] == "x.md#0"
+    assert c.get("/search", params={"q": "fts5"}).json()[0]["id"] == "api:x.md#0"
     assert c.post("/ask", json={"question": "hi"}).json()["answer"] == "ok"
     assert c.post("/ask", json={"question": ""}).status_code == 422
+
+
+def test_api_requires_token(monkeypatch):
+    from agentic_rag import api
+    c = TestClient(api.app)
+    monkeypatch.delenv("RAG_API_TOKEN", raising=False)
+    assert c.get("/search", params={"q": "x"}).status_code == 401  # no token configured -> closed
+    monkeypatch.setenv("RAG_API_TOKEN", "t0ken")
+    assert c.get("/search", params={"q": "x"}, headers={"Authorization": "Bearer nope"}).status_code == 401
