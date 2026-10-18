@@ -8,4 +8,4 @@ RUN useradd -r -u 10001 app && mkdir /data && chown app /data
 USER app
 ENV RAG_DB=/data/rag.db
 EXPOSE 8000
-CMD ["uv", "run", "--no-dev", "uvicorn", "agentic_rag.api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/.venv/bin/uvicorn", "agentic_rag.api:app", "--host", "0.0.0.0", "--port", "8000"]
